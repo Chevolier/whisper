@@ -7,6 +7,30 @@ from datasets import DatasetDict, Audio, load_dataset, concatenate_datasets
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
 
+import re
+
+# self defined chinese text normalizers
+class CantoneseTextNormalizer:
+    def __init__(self, split_letters: bool = False):
+
+        self.split_letters = split_letters
+
+    def __call__(self, s: str):
+        s = s.lower()
+        # s = re.sub(r"[<\[][^>\]]*[>\]]", "", s)  # remove words between brackets
+        # s = re.sub(r"\(([^)]+?)\)", "", s)  # remove words between parenthesis
+        # s = self.clean(s).lower()
+
+        # if self.split_letters:
+        #     s = " ".join(regex.findall(r"\X", s, regex.U))
+
+        s = re.sub(
+            r"\s+", "", s
+        )  # remove any whitespace characters
+        
+        return s
+
+
 #######################     ARGUMENT PARSING        #########################
 
 parser = argparse.ArgumentParser(description='Fine-tuning script for Whisper Models of various sizes.')
@@ -203,8 +227,8 @@ freeze_encoder = False
 do_normalize_eval = True
 do_lower_case = False
 do_remove_punctuation = False
-normalizer = BasicTextNormalizer()
-
+# normalizer = BasicTextNormalizer()
+normalizer = CantoneseTextNormalizer()
 
 #############################       MODEL LOADING       #####################################
 
@@ -329,7 +353,7 @@ data_collator = DataCollatorSpeechSeq2SeqWithPadding(processor=processor)
 print('DATASET PREPARATION COMPLETED')
 
 
-metric = evaluate.load("wer")
+metric = evaluate.load("cer")
 def compute_metrics(pred):
     pred_ids = pred.predictions
     label_ids = pred.label_ids
@@ -345,8 +369,8 @@ def compute_metrics(pred):
         pred_str = [normalizer(pred) for pred in pred_str]
         label_str = [normalizer(label) for label in label_str]
 
-    wer = 100 * metric.compute(predictions=pred_str, references=label_str)
-    return {"wer": wer}
+    cer = 100 * metric.compute(predictions=pred_str, references=label_str)
+    return {"cer": cer}
 
 
 ###############################     TRAINING ARGS AND TRAINING      ############################
@@ -360,7 +384,7 @@ if args.train_strategy == 'epoch':
         warmup_steps=args.warmup,
         gradient_checkpointing=gradient_checkpointing,
         fp16=True,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         num_train_epochs=args.num_epochs,
         save_total_limit=10,
@@ -370,7 +394,7 @@ if args.train_strategy == 'epoch':
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
-        metric_for_best_model="wer",
+        metric_for_best_model="cer",
         greater_is_better=False,
         optim="adamw_bnb_8bit",
         resume_from_checkpoint=args.resume_from_ckpt,
@@ -385,7 +409,7 @@ elif args.train_strategy == 'steps':
         warmup_steps=args.warmup,
         gradient_checkpointing=gradient_checkpointing,
         fp16=True,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         eval_steps=1000,
         save_strategy="steps",
         save_steps=1000,
@@ -397,7 +421,7 @@ elif args.train_strategy == 'steps':
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
-        metric_for_best_model="wer",
+        metric_for_best_model="cer",
         greater_is_better=False,
         optim="adamw_bnb_8bit",
         resume_from_checkpoint=args.resume_from_ckpt,

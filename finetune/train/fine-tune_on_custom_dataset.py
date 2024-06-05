@@ -6,6 +6,28 @@ from typing import Any, Dict, List, Union
 from datasets import DatasetDict, Audio, load_from_disk, concatenate_datasets
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
+import re
+
+# self defined chinese text normalizers
+class CantoneseTextNormalizer:
+    def __init__(self, split_letters: bool = False):
+
+        self.split_letters = split_letters
+
+    def __call__(self, s: str):
+        s = s.lower()
+        # s = re.sub(r"[<\[][^>\]]*[>\]]", "", s)  # remove words between brackets
+        # s = re.sub(r"\(([^)]+?)\)", "", s)  # remove words between parenthesis
+        # s = self.clean(s).lower()
+
+        # if self.split_letters:
+        #     s = " ".join(regex.findall(r"\X", s, regex.U))
+
+        s = re.sub(
+            r"\s+", "", s
+        )  # remove any whitespace characters
+        
+        return s
 
 #######################     ARGUMENT PARSING        #########################
 
@@ -135,7 +157,8 @@ freeze_encoder = False
 do_normalize_eval = True
 do_lower_case = False
 do_remove_punctuation = False
-normalizer = BasicTextNormalizer()
+# normalizer = BasicTextNormalizer()
+normalizer = CantoneseTextNormalizer()
 
 
 #############################       MODEL LOADING       #####################################
