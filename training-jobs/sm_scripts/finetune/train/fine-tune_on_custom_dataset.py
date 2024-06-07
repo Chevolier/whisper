@@ -8,6 +8,9 @@ from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
 import re
 import torch.distributed as dist
+import os
+
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 # self defined chinese text normalizers
 class CantoneseTextNormalizer:
@@ -150,6 +153,34 @@ print('\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
 print('ARGUMENTS OF INTEREST:')
 print(vars(args))
 print('\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
+
+
+###### Download model and data from S3 ######
+# Initialize the distributed process group
+dist.init_process_group(backend='nccl')
+
+# Get the rank of the current process
+rank = dist.get_rank()
+
+# Get the world size (total number of processes)
+world_size = dist.get_world_size()
+
+# Optionally, you can get the local rank within the node
+local_rank = rank % torch.cuda.device_count()
+
+# Set the current device based on the local rank
+# torch.cuda.set_device(local_rank)
+print(f"Running on rank {rank}/{world_size}")
+
+if rank == 0:
+    print("*****************start cp data and pretrained models*****************************")
+    os.system("chmod +x ./s5cmd")
+    os.system("./s5cmd sync {0}* {1}".format(os.environ['TRAIN_DATA_PATH'], args.train_datasets[0]))
+    os.system("./s5cmd sync {0}* {1}".format(os.environ['VALID_DATA_PATH'], args.eval_datasets[0]))
+    os.system("./s5cmd sync {0}* {1}".format(os.environ['PRETRAINED_MODEL_S3_PATH'], args.model_name))
+
+torch.distributed.barrier()
+###### download finish ######
 
 
 gradient_checkpointing = True
@@ -314,7 +345,7 @@ if args.train_strategy == 'epoch':
         save_total_limit=10,
         per_device_eval_batch_size=args.eval_batchsize,
         predict_with_generate=True,
-        generation_max_length=225,
+        generation_max_length=64, # 225
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
@@ -341,7 +372,7 @@ elif args.train_strategy == 'steps':
         save_total_limit=10,
         per_device_eval_batch_size=args.eval_batchsize,
         predict_with_generate=True,
-        generation_max_length=225,
+        generation_max_length=64, # 225,
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,

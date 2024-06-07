@@ -3,10 +3,12 @@ import argparse
 import evaluate
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
-from datasets import DatasetDict, Audio, load_from_disk, concatenate_datasets
+from datasets import DatasetDict, Audio, load_dataset, concatenate_datasets
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
+
 import re
+import os
 import torch.distributed as dist
 
 # self defined chinese text normalizers
@@ -29,6 +31,7 @@ class CantoneseTextNormalizer:
         )  # remove any whitespace characters
         
         return s
+
 
 #######################     ARGUMENT PARSING        #########################
 
@@ -133,6 +136,30 @@ parser.add_argument(
     help='List of datasets to be used for training.'
 )
 parser.add_argument(
+    '--train_dataset_configs', 
+    type=str, 
+    nargs='+', 
+    required=True, 
+    default=[], 
+    help="List of training dataset configs. Eg. 'hi' for the Hindi part of Common Voice",
+)
+parser.add_argument(
+    '--train_dataset_splits', 
+    type=str, 
+    nargs='+', 
+    required=True, 
+    default=[], 
+    help="List of training dataset splits. Eg. 'train' for the train split of Common Voice",
+)
+parser.add_argument(
+    '--train_dataset_text_columns', 
+    type=str, 
+    nargs='+', 
+    required=True, 
+    default=[], 
+    help="Text column name of each training dataset. Eg. 'sentence' for Common Voice",
+)
+parser.add_argument(
     '--eval_datasets', 
     type=str, 
     nargs='+', 
@@ -140,16 +167,89 @@ parser.add_argument(
     default=[], 
     help='List of datasets to be used for evaluation.'
 )
+parser.add_argument(
+    '--eval_dataset_configs', 
+    type=str, 
+    nargs='+', 
+    required=True, 
+    default=[], 
+    help="List of evaluation dataset configs. Eg. 'hi_in' for the Hindi part of Google Fleurs",
+)
+parser.add_argument(
+    '--eval_dataset_splits', 
+    type=str, 
+    nargs='+', 
+    required=True, 
+    default=[], 
+    help="List of evaluation dataset splits. Eg. 'test' for the test split of Common Voice",
+)
+parser.add_argument(
+    '--eval_dataset_text_columns', 
+    type=str, 
+    nargs='+', 
+    required=True, 
+    default=[], 
+    help="Text column name of each evaluation dataset. Eg. 'transcription' for Google Fleurs",
+)
 
 args = parser.parse_args()
 
 if args.train_strategy not in ['steps', 'epoch']:
     raise ValueError('The train strategy should be either steps and epoch.')
 
+if len(args.train_datasets) == 0:
+    raise ValueError('No train dataset has been passed')
+if len(args.eval_datasets) == 0:
+    raise ValueError('No evaluation dataset has been passed')
+
+if len(args.train_datasets) != len(args.train_dataset_configs):
+    raise ValueError(f"Ensure that the number of entries in the list of train_datasets equals the number of entries in the list of train_dataset_configs. Received {len(args.train_datasets)} entries for train_datasets and {len(args.train_dataset_configs)} for train_dataset_configs.")
+if len(args.eval_datasets) != len(args.eval_dataset_configs):
+    raise ValueError(f"Ensure that the number of entries in the list of eval_datasets equals the number of entries in the list of eval_dataset_configs. Received {len(args.eval_datasets)} entries for eval_datasets and {len(args.eval_dataset_configs)} for eval_dataset_configs.")
+
+if len(args.train_datasets) != len(args.train_dataset_splits):
+    raise ValueError(f"Ensure that the number of entries in the list of train_datasets equals the number of entries in the list of train_dataset_splits. Received {len(args.train_datasets)} entries for train_datasets and {len(args.train_dataset_splits)} for train_dataset_splits.")
+if len(args.eval_datasets) != len(args.eval_dataset_splits):
+    raise ValueError(f"Ensure that the number of entries in the list of eval_datasets equals the number of entries in the list of eval_dataset_splits. Received {len(args.eval_datasets)} entries for eval_datasets and {len(args.eval_dataset_splits)} for eval_dataset_splits.")
+
+if len(args.train_datasets) != len(args.train_dataset_text_columns):
+    raise ValueError(f"Ensure that the number of entries in the list of train_datasets equals the number of entries in the list of train_dataset_text_columns. Received {len(args.train_datasets)} entries for train_datasets and {len(args.train_dataset_text_columns)} for train_dataset_text_columns.")
+if len(args.eval_datasets) != len(args.eval_dataset_text_columns):
+    raise ValueError(f"Ensure that the number of entries in the list of eval_datasets equals the number of entries in the list of eval_dataset_text_columns. Received {len(args.eval_datasets)} entries for eval_datasets and {len(args.eval_dataset_text_columns)} for eval_dataset_text_columns.")
+
 print('\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
 print('ARGUMENTS OF INTEREST:')
 print(vars(args))
 print('\n\n+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n\n')
+
+
+###### Download model and data from S3 ######
+# Initialize the distributed process group
+dist.init_process_group(backend='nccl')
+
+# Get the rank of the current process
+rank = dist.get_rank()
+
+# Get the world size (total number of processes)
+world_size = dist.get_world_size()
+
+# Optionally, you can get the local rank within the node
+local_rank = rank % torch.cuda.device_count()
+
+# Set the current device based on the local rank
+# torch.cuda.set_device(local_rank)
+print(f"Running on rank {rank}/{world_size}")
+
+if rank == 0:
+    print("*****************start cp data and pretrained models*****************************")
+    os.system("chmod +x ./s5cmd")
+    os.system("./s5cmd sync {0}* {1}".format(os.environ['TRAIN_DATA_PATH'], args.train_datasets))
+    os.system("./s5cmd sync {0}* {1}".format(os.environ['VALID_DATA_PATH'], args.eval_datasets))
+    os.system("./s5cmd sync {0}* {1}".format(os.environ['PRETRAINED_MODEL_S3_PATH'], args.model_name))
+
+torch.distributed.barrier()
+###### download finish ######
+
 
 
 gradient_checkpointing = True
@@ -162,7 +262,6 @@ do_remove_punctuation = False
 # normalizer = BasicTextNormalizer()
 normalizer = CantoneseTextNormalizer()
 
-
 #############################       MODEL LOADING       #####################################
 
 feature_extractor = WhisperFeatureExtractor.from_pretrained(args.model_name)
@@ -171,7 +270,7 @@ processor = WhisperProcessor.from_pretrained(args.model_name, language=args.lang
 model = WhisperForConditionalGeneration.from_pretrained(args.model_name)
 
 if model.config.decoder_start_token_id is None:
-    raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
+    raise ValueError("Make sure that config.decoder_start_token_id is correctly defined")
 
 if freeze_feature_encoder:
     model.freeze_feature_encoder()
@@ -190,16 +289,26 @@ if gradient_checkpointing:
 
 ############################        DATASET LOADING AND PREP        ##########################
 
-def load_custom_dataset(split):
-    ds = []
+def load_all_datasets(split):    
+    combined_dataset = []
     if split == 'train':
-        for dset in args.train_datasets:
-            ds.append(load_from_disk(dset))
-    if split == 'eval':
-        for dset in args.eval_datasets:
-            ds.append(load_from_disk(dset))
-
-    ds_to_return = concatenate_datasets(ds)
+        for i, ds in enumerate(args.train_datasets):
+            dataset = load_dataset(ds, args.train_dataset_configs[i], split=args.train_dataset_splits[i])
+            dataset = dataset.cast_column("audio", Audio(args.sampling_rate))
+            if args.train_dataset_text_columns[i] != "sentence":
+                dataset = dataset.rename_column(args.train_dataset_text_columns[i], "sentence")
+            dataset = dataset.remove_columns(set(dataset.features.keys()) - set(["audio", "sentence"]))
+            combined_dataset.append(dataset)
+    elif split == 'eval':
+        for i, ds in enumerate(args.eval_datasets):
+            dataset = load_dataset(ds, args.eval_dataset_configs[i], split=args.eval_dataset_splits[i])
+            dataset = dataset.cast_column("audio", Audio(args.sampling_rate))
+            if args.eval_dataset_text_columns[i] != "sentence":
+                dataset = dataset.rename_column(args.eval_dataset_text_columns[i], "sentence")
+            dataset = dataset.remove_columns(set(dataset.features.keys()) - set(["audio", "sentence"]))
+            combined_dataset.append(dataset)
+    
+    ds_to_return = concatenate_datasets(combined_dataset)
     ds_to_return = ds_to_return.shuffle(seed=22)
     return ds_to_return
 
@@ -232,17 +341,16 @@ def is_in_length_range(length, labels):
 
 print('DATASET PREPARATION IN PROGRESS...')
 raw_dataset = DatasetDict()
-raw_dataset["train"] = load_custom_dataset('train')
-raw_dataset["eval"] = load_custom_dataset('eval')
+raw_dataset["train"] = load_all_datasets('train')
+raw_dataset["eval"] = load_all_datasets('eval')
 
-raw_dataset = raw_dataset.cast_column("audio", Audio(sampling_rate=args.sampling_rate))
 raw_dataset = raw_dataset.map(prepare_dataset, num_proc=args.num_proc)
 
 raw_dataset = raw_dataset.filter(
     is_in_length_range,
     input_columns=["input_length", "labels"],
     num_proc=args.num_proc,
-)
+) 
 
 ###############################     DATA COLLATOR AND METRIC DEFINITION     ########################
 
@@ -293,7 +401,7 @@ def compute_metrics(pred):
         pred_str = [normalizer(pred) for pred in pred_str]
         label_str = [normalizer(label) for label in label_str]
 
-    cer = 100 * metric.compute(predictions=pred_str, references=label_str)  # wer 
+    cer = 100 * metric.compute(predictions=pred_str, references=label_str)
     return {"cer": cer}
 
 
@@ -318,7 +426,7 @@ if args.train_strategy == 'epoch':
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
-        metric_for_best_model="cer", # "wer"
+        metric_for_best_model="cer",
         greater_is_better=False,
         optim="adamw_bnb_8bit",
         resume_from_checkpoint=args.resume_from_ckpt,
@@ -345,7 +453,7 @@ elif args.train_strategy == 'steps':
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
-        metric_for_best_model="cer", # "wer"
+        metric_for_best_model="cer",
         greater_is_better=False,
         optim="adamw_bnb_8bit",
         resume_from_checkpoint=args.resume_from_ckpt,

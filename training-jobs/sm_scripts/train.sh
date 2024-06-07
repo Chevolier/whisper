@@ -1,21 +1,28 @@
 #!/bin/bash
 
-git clone https://github.com/openclimatefix/skillful_nowcasting.git
+pip install --upgrade pip
+pip install --upgrade git+https://github.com/huggingface/transformers.git accelerate datasets[audio]
 
+pip install -U openai-whisper
 pip install -r requirements.txt
-pip install -e skillful_nowcasting
 
-#                     --pretrained_model_path models/dgmr \
-python -u run.py --num_input_frames 4 --num_forecast_frames 18 \
-                    --train_data_dir /tmp/data/zuimei-radar-cropped/train \
-                    --valid_data_dir /tmp/data/zuimei-radar-cropped/valid \
-                    --output_dir checkpoint/dgmr_forecast18_train50k_ep10_init\
-                    --num_train_epochs 10 --train_batch_size 1 --valid_batch_size 1\
-                    --mixed_precision bf16-mixed \
-                    --accelerator_device gpu \
-                    --num_devices 8 \
-                    --strategy ddp \
-                    --dataloader_num_workers 8 \
-                    --validation_steps 1000 \
-                    --checkpointing_steps 1000
+pip install ffmpeg
+
+ngpu=$SM_NUM_GPUS  # number of GPUs to perform distributed training on.
+
+torchrun --nproc_per_node=${ngpu} finetune/train/fine-tune_on_custom_dataset.py \
+--model_name whisper-large-v3 \
+--language Cantonese \
+--sampling_rate 16000 \
+--num_proc ${ngpu} \
+--train_strategy epoch \
+--learning_rate 3e-3 \
+--warmup 1000 \
+--train_batchsize 1 \
+--eval_batchsize 1 \
+--num_epochs 2 \
+--resume_from_ckpt None \
+--output_dir /opt/ml/checkpoints \
+--train_datasets data/midea_data \
+--eval_datasets data/midea_data
         
