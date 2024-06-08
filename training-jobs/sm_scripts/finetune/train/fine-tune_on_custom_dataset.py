@@ -11,6 +11,7 @@ import torch.distributed as dist
 import os
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:256'
 
 # self defined chinese text normalizers
 class CantoneseTextNormalizer:
@@ -345,7 +346,7 @@ if args.train_strategy == 'epoch':
         save_total_limit=10,
         per_device_eval_batch_size=args.eval_batchsize,
         predict_with_generate=True,
-        generation_max_length=64, # 225
+        generation_max_length=225, # 225
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
@@ -372,7 +373,7 @@ elif args.train_strategy == 'steps':
         save_total_limit=10,
         per_device_eval_batch_size=args.eval_batchsize,
         predict_with_generate=True,
-        generation_max_length=64, # 225,
+        generation_max_length=225, # 225,
         logging_steps=500,
         report_to=["tensorboard"],
         load_best_model_at_end=True,

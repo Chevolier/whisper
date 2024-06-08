@@ -18,11 +18,11 @@ torchrun --nproc_per_node=${ngpu} finetune/train/fine-tune_on_custom_dataset.py 
 --train_strategy epoch \
 --learning_rate 3e-3 \
 --warmup 1000 \
---train_batchsize 1 \
---eval_batchsize 1 \
---num_epochs 2 \
+--train_batchsize 4 \
+--eval_batchsize 4 \
+--num_epochs 5 \
 --resume_from_ckpt None \
 --output_dir /opt/ml/checkpoints \
---train_datasets data/midea_data \
---eval_datasets data/midea_data
+--train_datasets data/train \
+--eval_datasets data/valid
         
