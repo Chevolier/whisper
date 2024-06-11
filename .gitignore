@@ -12,3 +12,6 @@ data/
 output/
 outputs/
 checkpoint/
+flagged/
+logs/
+log/

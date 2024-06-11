@@ -3,7 +3,7 @@ import argparse
 import evaluate
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
-from datasets import DatasetDict, Audio, load_from_disk, concatenate_datasets
+from datasets import DatasetDict, Audio, load_from_disk, load_dataset, concatenate_datasets
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from transformers import WhisperFeatureExtractor, WhisperTokenizer, WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
 import re
@@ -195,9 +195,11 @@ def load_custom_dataset(split):
     if split == 'train':
         for dset in args.train_datasets:
             ds.append(load_from_disk(dset))
+            # ds.append(load_dataset(dset, split='train', streaming=True))
     if split == 'eval':
         for dset in args.eval_datasets:
             ds.append(load_from_disk(dset))
+            # ds.append(load_dataset(dset, split='validation', streaming=True))
 
     ds_to_return = concatenate_datasets(ds)
     ds_to_return = ds_to_return.shuffle(seed=22)
@@ -334,15 +336,15 @@ elif args.train_strategy == 'steps':
         gradient_checkpointing=gradient_checkpointing,
         fp16=True,
         eval_strategy="steps",
-        eval_steps=1000,
+        eval_steps=500,
         save_strategy="steps",
-        save_steps=1000,
+        save_steps=500,
         max_steps=args.num_steps,
         save_total_limit=10,
         per_device_eval_batch_size=args.eval_batchsize,
         predict_with_generate=True,
         generation_max_length=225,
-        logging_steps=500,
+        logging_steps=100,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
         metric_for_best_model="cer", # "wer"

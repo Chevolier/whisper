@@ -10,3 +10,4 @@ jiwer
 evaluate
 tensorboardX
 bitsandbytes
+gradio
