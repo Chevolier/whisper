@@ -10,6 +10,7 @@ pip install --upgrade git+https://github.com/huggingface/transformers.git accele
 pip install -U openai-whisper
 pip install -r requirements.txt
 
+pip install flash-attn --no-build-isolation
 conda install ffmpeg
 ```
 

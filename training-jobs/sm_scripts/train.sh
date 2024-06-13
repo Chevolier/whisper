@@ -17,11 +17,11 @@ torchrun --nproc_per_node=${ngpu} finetune/train/fine-tune_on_custom_dataset.py 
 --num_proc 1 \
 --train_strategy steps \
 --learning_rate 5e-6 \
---warmup 100 \
+--warmup 10 \
 --train_batchsize 8 \
 --eval_batchsize 8 \
 --num_epochs 10 \
---num_steps 20000 \
+--num_steps 1000 \
 --resume_from_ckpt None \
 --output_dir /opt/ml/checkpoints \
 --train_datasets /tmp/data/train \

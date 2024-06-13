@@ -5,6 +5,7 @@ import torch
 
 # model_path = "/home/ec2-user/SageMaker/efs/Models/whisper-large-v3"
 model_path = "/home/ec2-user/SageMaker/efs/Projects/whisper/checkpoint/checkpoint-v1-5e6/checkpoint-68"
+model_path = "/app/checkpoint/checkpoint-v1-5e6/checkpoint-68"
 
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -35,12 +36,12 @@ def transcribe(audio):
     y = y.astype(np.float32)
     y /= np.max(np.abs(y))
 
-    return transcriber({"sampling_rate": sr, "raw": y})["text"]
+    return transcriber({"sampling_rate": sr, "raw": y}, generate_kwargs={"language": "cantonese"})["text"]
 
 
 demo = gr.Interface(
     transcribe,
-    gr.Audio(sources=["microphone"]),
+    gr.Audio(sources=["microphone", "upload"]),
     "text",
 )
 

@@ -370,15 +370,15 @@ elif args.train_strategy == 'steps':
         gradient_checkpointing=gradient_checkpointing,
         fp16=True,
         eval_strategy="steps",
-        eval_steps=500,
+        eval_steps=10,
         save_strategy="steps",
-        save_steps=500,
+        save_steps=10,
         max_steps=args.num_steps,
-        save_total_limit=10,
+        save_total_limit=20,
         per_device_eval_batch_size=args.eval_batchsize,
         predict_with_generate=True,
         generation_max_length=225, # 225,
-        logging_steps=500,
+        logging_steps=10,
         report_to=["tensorboard"],
         load_best_model_at_end=True,
         metric_for_best_model="cer", # "wer"
@@ -397,6 +397,7 @@ trainer = Seq2SeqTrainer(
     tokenizer=processor.feature_extractor,
 )
 
+tokenizer.save_pretrained(training_args.output_dir)
 processor.save_pretrained(training_args.output_dir)
 
 print('TRAINING IN PROGRESS...')
