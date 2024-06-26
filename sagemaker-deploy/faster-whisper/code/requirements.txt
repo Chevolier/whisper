@@ -1,0 +1,6 @@
+
+#transformers==4.36.2
+faster_whisper
+boto3
+ctranslate2==3.24.0
+#accelerate==0.26.1

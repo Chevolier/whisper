@@ -22,6 +22,10 @@ conda install ffmpeg
 ## Training in training-jobs
 
 
+# Convert model to faster transformer
+ct2-transformers-converter --model checkpoint/checkpoint-v7-bs64/checkpoint-60 --output_dir checkpoint/checkpoint-v7-bs64/checkpiont-60-faster --copy_files tokenizer.json preprocessor_config.json --quantization float16
+
+
 
 
 
