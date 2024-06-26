@@ -131,7 +131,7 @@ bash train.sh
 ```
 
 
-# Test the performance use custom_data_v0
+# Test the performance use custom data
 
 Run the commands in test.ipynb step by step, and it would outputs the CER of the specified models.
 
