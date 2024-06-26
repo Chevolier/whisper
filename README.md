@@ -1,146 +1,152 @@
-# Whisper
-
-[[Blog]](https://openai.com/blog/whisper)
-[[Paper]](https://arxiv.org/abs/2212.04356)
-[[Model card]](https://github.com/openai/whisper/blob/main/model-card.md)
-[[Colab example]](https://colab.research.google.com/github/openai/whisper/blob/master/notebooks/LibriSpeech.ipynb)
-
-Whisper is a general-purpose speech recognition model. It is trained on a large dataset of diverse audio and is also a multitasking model that can perform multilingual speech recognition, speech translation, and language identification.
-
-
-## Approach
-
-![Approach](https://raw.githubusercontent.com/openai/whisper/main/approach.png)
-
-A Transformer sequence-to-sequence model is trained on various speech processing tasks, including multilingual speech recognition, speech translation, spoken language identification, and voice activity detection. These tasks are jointly represented as a sequence of tokens to be predicted by the decoder, allowing a single model to replace many stages of a traditional speech-processing pipeline. The multitask training format uses a set of special tokens that serve as task specifiers or classification targets.
-
-
-## Setup
-
-We used Python 3.9.9 and [PyTorch](https://pytorch.org/) 1.10.1 to train and test our models, but the codebase is expected to be compatible with Python 3.8-3.11 and recent PyTorch versions. The codebase also depends on a few Python packages, most notably [OpenAI's tiktoken](https://github.com/openai/tiktoken) for their fast tokenizer implementation. You can download and install (or update to) the latest release of Whisper with the following command:
-
-    pip install -U openai-whisper
-
-Alternatively, the following command will pull and install the latest commit from this repository, along with its Python dependencies:
-
-    pip install git+https://github.com/openai/whisper.git 
-
-To update the package to the latest version of this repository, please run:
-
-    pip install --upgrade --no-deps --force-reinstall git+https://github.com/openai/whisper.git
-
-It also requires the command-line tool [`ffmpeg`](https://ffmpeg.org/) to be installed on your system, which is available from most package managers:
+# Environement Configuration
 
 ```bash
-# on Ubuntu or Debian
-sudo apt update && sudo apt install ffmpeg
+conda create -n whisper python=3.10
+conda activate whisper
 
-# on Arch Linux
-sudo pacman -S ffmpeg
+pip install --upgrade pip
+pip install --upgrade git+https://github.com/huggingface/transformers.git accelerate datasets[audio]
 
-# on MacOS using Homebrew (https://brew.sh/)
-brew install ffmpeg
+pip install -U openai-whisper
+pip install -r requirements.txt
 
-# on Windows using Chocolatey (https://chocolatey.org/)
-choco install ffmpeg
-
-# on Windows using Scoop (https://scoop.sh/)
-scoop install ffmpeg
+pip install flash-attn --no-build-isolation
+conda install ffmpeg
 ```
 
-You may need [`rust`](http://rust-lang.org) installed as well, in case [tiktoken](https://github.com/openai/tiktoken) does not provide a pre-built wheel for your platform. If you see installation errors during the `pip install` command above, please follow the [Getting started page](https://www.rust-lang.org/learn/get-started) to install Rust development environment. Additionally, you may need to configure the `PATH` environment variable, e.g. `export PATH="$HOME/.cargo/bin:$PATH"`. If the installation fails with `No module named 'setuptools_rust'`, you need to install `setuptools_rust`, e.g. by running:
+# Data Preparation
+1. First download 2 open datasets, 
+
+Common Voice Corpus 17.0 (中文（香港）)：https://commonvoice.mozilla.org/zh-HK/datasets
+MDCC：https://github.com/HLTCHKUST/cantonese-asr?tab=readme-ov-file
+
+and unzip them in the data/ directory. 
+
+Common Voice directory
 
 ```bash
-pip install setuptools-rust
+cv-corpus-17.0-2024-03-15/
+└── zh-HK
+    ├── clip_durations.tsv
+    ├── clips
+    ├── invalidated.tsv
+    ├── other.tsv
+    ├── reported.tsv
+    ├── test.tsv
+    ├── train.tsv
+    ├── unvalidated_sentences.tsv
+    ├── validated_sentences.tsv
+    ├── validated.tsv
+    └── valid.tsv
+```
+
+MDCC folder
+
+```bash
+MDCC/
+├── audio
+├── clip_info_rthk.csv
+├── cnt_asr_metadata_full.csv
+├── cnt_asr_test_metadata.csv
+├── cnt_asr_train_metadata.csv
+├── cnt_asr_valid_metadata.csv
+├── data_statistic.py
+├── length
+├── podcast_447_2021.csv
+├── README.md
+├── test.txt
+├── transcription
+└── words_length
 ```
 
 
-## Available models and languages
+Put midea data also in the data/ directory in the following format
 
-There are five model sizes, four with English-only versions, offering speed and accuracy tradeoffs. Below are the names of the available models and their approximate memory requirements and inference speed relative to the large model; actual speed may vary depending on many factors including the available hardware.
-
-|  Size  | Parameters | English-only model | Multilingual model | Required VRAM | Relative speed |
-|:------:|:----------:|:------------------:|:------------------:|:-------------:|:--------------:|
-|  tiny  |    39 M    |     `tiny.en`      |       `tiny`       |     ~1 GB     |      ~32x      |
-|  base  |    74 M    |     `base.en`      |       `base`       |     ~1 GB     |      ~16x      |
-| small  |   244 M    |     `small.en`     |      `small`       |     ~2 GB     |      ~6x       |
-| medium |   769 M    |    `medium.en`     |      `medium`      |     ~5 GB     |      ~2x       |
-| large  |   1550 M   |        N/A         |      `large`       |    ~10 GB     |       1x       |
-
-The `.en` models for English-only applications tend to perform better, especially for the `tiny.en` and `base.en` models. We observed that the difference becomes less significant for the `small.en` and `medium.en` models.
-
-Whisper's performance varies widely depending on the language. The figure below shows a performance breakdown of `large-v3` and `large-v2` models by language, using WERs (word error rates) or CER (character error rates, shown in *Italic*) evaluated on the Common Voice 15 and Fleurs datasets. Additional WER/CER metrics corresponding to the other models and datasets can be found in Appendix D.1, D.2, and D.4 of [the paper](https://arxiv.org/abs/2212.04356), as well as the BLEU (Bilingual Evaluation Understudy) scores for translation in Appendix D.3.
-
-![WER breakdown by language](https://github.com/openai/whisper/assets/266841/f4619d66-1058-4005-8f67-a9d811b77c62)
-
-
-
-## Command-line usage
-
-The following command will transcribe speech in audio files, using the `medium` model:
-
-    whisper audio.flac audio.mp3 audio.wav --model medium
-
-The default setting (which selects the `small` model) works well for transcribing English. To transcribe an audio file containing non-English speech, you can specify the language using the `--language` option:
-
-    whisper japanese.wav --language Japanese
-
-Adding `--task translate` will translate the speech into English:
-
-    whisper japanese.wav --language Japanese --task translate
-
-Run the following to view all available options:
-
-    whisper --help
-
-See [tokenizer.py](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py) for the list of all available languages.
-
-
-## Python usage
-
-Transcription can also be performed within Python: 
-
-```python
-import whisper
-
-model = whisper.load_model("base")
-result = model.transcribe("audio.mp3")
-print(result["text"])
+```bash
+midea_2173/
+├── amrs
+└── transcripts.csv
 ```
 
-Internally, the `transcribe()` method reads the entire file and processes the audio with a sliding 30-second window, performing autoregressive sequence-to-sequence predictions on each window.
 
-Below is an example usage of `whisper.detect_language()` and `whisper.decode()` which provide lower-level access to the model.
+2. Run the commands in data_process.ipynb step by step and generate the custom_data_v7 data, its structure is
 
-```python
-import whisper
-
-model = whisper.load_model("base")
-
-# load audio and pad/trim it to fit 30 seconds
-audio = whisper.load_audio("audio.mp3")
-audio = whisper.pad_or_trim(audio)
-
-# make log-Mel spectrogram and move to the same device as the model
-mel = whisper.log_mel_spectrogram(audio).to(model.device)
-
-# detect the spoken language
-_, probs = model.detect_language(mel)
-print(f"Detected language: {max(probs, key=probs.get)}")
-
-# decode the audio
-options = whisper.DecodingOptions()
-result = whisper.decode(model, mel, options)
-
-# print the recognized text
-print(result.text)
+```bash
+custom_data_v0/
+├── test
+│   ├── audio_paths
+│   ├── data-00000-of-00001.arrow
+│   ├── dataset_info.json
+│   ├── state.json
+│   └── text
+├── train
+│   ├── audio_paths
+│   ├── cache-1ec12c05f7b14d0d.arrow
+│   ├── cache-b01ce5b489deda03_00000_of_00008.arrow
+│   ├── cache-b01ce5b489deda03_00001_of_00008.arrow
+│   ├── cache-b01ce5b489deda03_00002_of_00008.arrow
+...
+│   ├── dataset_info.json
+│   ├── state.json
+│   └── text
+└── valid
+    ├── audio_paths
+    ├── cache-2081f3f5ea51dc4e_00000_of_00008.arrow
+    ├── cache-2081f3f5ea51dc4e_00001_of_00008.arrow
+...
+    ├── dataset_info.json
+    ├── state.json
+    └── text
 ```
 
-## More examples
 
-Please use the [🙌 Show and tell](https://github.com/openai/whisper/discussions/categories/show-and-tell) category in Discussions for sharing more example usages of Whisper and third-party extensions such as web demos, integrations with other tools, ports for different platforms, etc.
+# Training, provide two methods, suggest to use "Training in training-jobs" method since a larger batch size could be used.
+
+## Training in training-jobs
+
+1. First download whisper-large-v3 model from huggingface https://huggingface.co/openai/whisper-large-v3.
+
+2. Go to training-jobs directory and run the command in train.ipynb step by step, note to change the local_model_path = "/home/ec2-user/SageMaker/efs/Models/whisper-large-v3" in Step 2. Upload pretrained models to S3 to the path of downloaded whisper-large-v3 model in your notebook instance. 
+
+Training with 200 steps takes about 4 hours, after that, the checkpoints would be uploaded to the S3 path 
+
+```bash
+s3://{your-bucket}/checkpoints/whisper_checkpoint_v0
+```
+
+3. Download checkpoint-60 with the following command to the local checkpoint/ directory
+
+```bash
+aws s3 sync s3://{your-bucket}/checkpoints/whisper_checkpoint_v0/checkpoint-60/ checkpoint/checkpoint-60 --exclude "*.pth"
+```
+
+## Training in notebooks (only when ml.p4d.24xlarge is not available, could try this method)
+
+Suggest to use ml.g5.48xlarge, run the following command
 
 
-## License
 
-Whisper's code and model weights are released under the MIT License. See [LICENSE](https://github.com/openai/whisper/blob/main/LICENSE) for further details.
+```bash
+bash train.sh
+```
+
+
+# Test the performance use custom_data_v0
+
+Run the commands in test.ipynb step by step, and it would outputs the CER of the specified models.
+
+
+
+# Deploy faster whisper to SageMaker endpoint
+
+Go to sagemaker-deploy/faster-whisper/, and run the commands in huggingface.ipynb step by step.
+
+
+
+
+
+
+
+
+
+
