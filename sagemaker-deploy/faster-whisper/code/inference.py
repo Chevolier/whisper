@@ -16,7 +16,7 @@ def transform_fn(model, request_body, request_content_type, response_content_typ
     print(f"request_body:{request_body}")
     data = json.loads(request_body)
     print(f"type:{type(data)}")
-    s3_client = boto3.client("s3",region_name='us-west-2')  # ap-southeast-1
+    s3_client = boto3.client("s3",region_name='ap-southeast-1')  # ap-southeast-1
     s3_bucket = data['s3_bucket']
     print(f"s3_bucket:{type(s3_bucket)}")
     object_key = data['key']
@@ -34,7 +34,7 @@ def transform_fn(model, request_body, request_content_type, response_content_typ
         speaker = "customer"
     for segment in segments:
         scripts.append({"contact_id":contact_id,"time_stamp":int(fragment_id)+segment.start,"words":str(segment.text),"speaker":speaker})
-    dynamodb_client = boto3.resource('dynamodb',region_name='us-west-2')
+    dynamodb_client = boto3.resource('dynamodb',region_name='ap-southeast-1')
     conversation_table = dynamodb_client.Table("speech2text")
     with conversation_table.batch_writer() as batch:
         for item in scripts:
