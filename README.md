@@ -114,7 +114,26 @@ Training with 200 steps takes about 4 hours, after that, the checkpoints would b
 s3://{your-bucket}/checkpoints/whisper_checkpoint_v0
 ```
 
-3. Download checkpoint-60 with the following command to the local checkpoint/ directory
+3. Download runs from S3 to the local machine and use tensorboard to select the checkpoint with minimum CER
+
+```bash
+aws s3 sync s3://{your-bucket}/checkpoints/whisper_checkpoint_v0/runs/ checkpoint/runs
+```
+
+```bash
+tensorboard --logdir checkpoint/runs
+```
+
+It will print 
+```
+TensorFlow installation not found - running with reduced feature set.
+Serving TensorBoard on localhost; to expose to the network, use a proxy or pass --bind_all
+TensorBoard 2.17.0 at http://localhost:6006/ (Press CTRL+C to quit)
+```
+
+Open the above link and view the graph and select the checkpoint with the minimum val/CER
+
+3. Download the best checkpoint say (checkpoint-60) with the following command to the local checkpoint/ directory
 
 ```bash
 aws s3 sync s3://{your-bucket}/checkpoints/whisper_checkpoint_v0/checkpoint-60/ checkpoint/checkpoint-60 --exclude "*.pth"
