@@ -139,6 +139,9 @@ Open the above link and view the graph and select the checkpoint with the minimu
 aws s3 sync s3://{your-bucket}/checkpoints/whisper_checkpoint_v0/checkpoint-60/ checkpoint/checkpoint-60 --exclude "*.pth"
 ```
 
+After download the checkpoint, unzip complement.tar.gz to the checkpoint folder.
+
+
 ## Training in notebooks (only when ml.p4d.24xlarge is not available, could try this method)
 
 Suggest to use ml.g5.48xlarge, run the following command
