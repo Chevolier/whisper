@@ -123,6 +123,53 @@ bash train.sh
 Go to sagemaker-deploy/faster-whisper/, and run the commands in huggingface.ipynb step by step.
 
 
+# TCL test
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+使用 FFmpeg 下载并转换这个在线 m3u8 文件为 wav 格式，完整命令如下：
+
+```bash
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec pcm_s16le -ar 44100 -ac 2 output.wav
+```
+
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/0adfd35e-15b8-4be5-8a00-a09456553df0/playlist.m3u8" -vn -acodec pcm_s16le -ar 44100 -ac 2 output.wav
+
+
+简化版命令：
+
+```bash
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" output.mp3
+```
+
+注意事项：
+1. 确保已安装 FFmpeg
+2. 保持网络连接稳定
+3. URL 需要用引号括起来
+4. 如果下载速度慢，可能需要等待一段时间
+
+转换完成后会在当前目录生成 output.wav 文件。
+
+```bash
+ffmpeg -i foreigner.wav -ss 00:20:00 -t 00:10:00 foreigner_20m_30m.wav
+```
+
+Breaking down the arguments:
+- `-i foreigner.wav`: input file
+- `-ss 00:20:00`: start time (20 minutes)
+- `-t 00:10:00`: duration to cut (10 minutes)
+- `output.wav`: output file
+
+1. Convert to MP3 (most common, good compression):
+```bash
+ffmpeg -i foreigner.wav -b:a 192k output.mp3     # 192kbps quality
+ffmpeg -i foreigner.wav -b:a 128k foreigner.mp3     # 128kbps quality (smaller file)
+ffmpeg -i foreigner.mp3 -ss 00:20:00 -t 00:10:00 foreigner_20m_30m.mp3
+ffmpeg -i foreigner.mp3 -ss 00:20:00 -t 00:1:00 foreigner_20m_21m.mp3
+```
 
 
 
