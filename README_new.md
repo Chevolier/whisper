@@ -133,17 +133,30 @@ sudo apt install ffmpeg
 使用 FFmpeg 下载并转换这个在线 m3u8 文件为 wav 格式，完整命令如下：
 
 ```bash
-ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec pcm_s16le -ar 44100 -ac 2 output.wav
 
+# see the audio format
 ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -hide_banner
 
-ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec libmp3lame -b:a 128k foreigner.mp3
-
+# keep the original audio format
 ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec copy foreigner.aac
+
+# wav format
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec pcm_s16le -ar 44100 -ac 2 foreigner.wav
+
+# mp3 format
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec libmp3lame -b:a 128k foreigner.mp3
 
 ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/063b9069-85f0-4d30-9fc0-837cda23820c/playlist.m3u8" -vn -acodec libmp3lame -ar 44100 -ac 2 -b:a 128k -async 1 -copyts -start_at_zero foreigner_v2.mp3
 
+# another movie
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/0adfd35e-15b8-4be5-8a00-a09456553df0/playlist.m3u8" -hide_banner
+
 ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/0adfd35e-15b8-4be5-8a00-a09456553df0/playlist.m3u8" -vn -acodec pcm_s16le -ar 44100 -ac 2 captive.wav
+
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/0adfd35e-15b8-4be5-8a00-a09456553df0/playlist.m3u8" -vn -acodec copy captive.aac
+
+ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -i "https://vz-5b088fab-d61.b-cdn.net/0adfd35e-15b8-4be5-8a00-a09456553df0/playlist.m3u8" -vn -acodec libmp3lame -ar 44100 -ac 2 -b:a 128k -async 1 -copyts -start_at_zero captive.mp3
+
 ```
 
 
@@ -186,4 +199,5 @@ ffmpeg -i foreigner.aac -ss 00:00:00 -t 00:10:00 foreigner_00m_10m.aac
 
 ```bash
 pip install stable-ts==1.0.0
+pip install ffmpeg-python
 ```
